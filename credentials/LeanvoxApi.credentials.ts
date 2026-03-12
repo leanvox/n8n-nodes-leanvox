@@ -8,7 +8,7 @@ import type {
 export class LeanvoxApi implements ICredentialType {
 	name = 'leanvoxApi';
 	displayName = 'LeanVox API';
-	documentationUrl = 'https://docs.leanvox.com';
+	documentationUrl = 'https://leanvox.com/docs';
 
 	properties: INodeProperties[] = [
 		{

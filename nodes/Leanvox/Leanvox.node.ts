@@ -162,11 +162,12 @@ export class Leanvox implements INodeType {
 				type: 'options',
 				required: true,
 				options: [
+					{ name: 'Standard', value: 'standard' },
+					{ name: 'Pro', value: 'pro' },
 					{ name: 'Max', value: 'max' },
-					{ name: 'Turbo', value: 'turbo' },
 				],
-				default: 'turbo',
-				description: 'The TTS model to use',
+				default: 'standard',
+				description: 'The TTS model to use. Standard: fast & lightweight. Pro: 238 curated voices with cloning. Max: instruction-based voice design.',
 				displayOptions: {
 					show: {
 						resource: ['speech'],
@@ -234,6 +235,25 @@ export class Leanvox implements INodeType {
 			},
 
 			// Speech > Dialogue
+			{
+				displayName: 'Model',
+				name: 'dialogueModel',
+				type: 'options',
+				required: true,
+				options: [
+					{ name: 'Standard', value: 'standard' },
+					{ name: 'Pro', value: 'pro' },
+					{ name: 'Max', value: 'max' },
+				],
+				default: 'standard',
+				description: 'The TTS model to use for dialogue',
+				displayOptions: {
+					show: {
+						resource: ['speech'],
+						operation: ['dialogue'],
+					},
+				},
+			},
 			{
 				displayName: 'Lines',
 				name: 'lines',
@@ -347,8 +367,8 @@ export class Leanvox implements INodeType {
 								: '/v1/tts/generate/async';
 
 						if (operation === 'generate') {
-							// Sync TTS returns audio binary
-							const response = await this.helpers.httpRequestWithAuthentication.call(
+							// Sync TTS returns JSON with audio_url
+							responseData = await this.helpers.httpRequestWithAuthentication.call(
 								this,
 								'leanvoxApi',
 								{
@@ -356,34 +376,8 @@ export class Leanvox implements INodeType {
 									url: `https://api.leanvox.com${endpoint}`,
 									body,
 									json: true,
-									returnFullResponse: true,
-									encoding: 'arraybuffer',
 								},
 							);
-
-							const contentType =
-								(response.headers?.['content-type'] as string) ?? 'audio/mpeg';
-
-							// If response is JSON (e.g. error or metadata), return as JSON
-							if (contentType.includes('application/json')) {
-								const jsonStr =
-									response.body instanceof Buffer
-										? response.body.toString('utf8')
-										: String(response.body);
-								responseData = JSON.parse(jsonStr);
-							} else {
-								// Binary audio response
-								const binaryData = await this.helpers.prepareBinaryData(
-									Buffer.from(response.body as Buffer),
-									'output.mp3',
-									contentType,
-								);
-								returnData.push({
-									json: { success: true },
-									binary: { data: binaryData },
-								});
-								continue;
-							}
 						} else {
 							responseData = await this.helpers.httpRequestWithAuthentication.call(
 								this,
@@ -408,6 +402,7 @@ export class Leanvox implements INodeType {
 							},
 						);
 					} else if (operation === 'dialogue') {
+						const dialogueModel = this.getNodeParameter('dialogueModel', i) as string;
 						const linesData = this.getNodeParameter('lines.lineValues', i, []) as Array<{
 							text: string;
 							voice: string;
@@ -418,7 +413,7 @@ export class Leanvox implements INodeType {
 							{
 								method: 'POST' as IHttpRequestMethods,
 								url: 'https://api.leanvox.com/v1/tts/dialogue',
-								body: { lines: linesData },
+								body: { model: dialogueModel, lines: linesData },
 								json: true,
 							},
 						);
