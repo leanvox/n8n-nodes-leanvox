@@ -68,7 +68,7 @@ export class Leanvox implements INodeType {
 					{
 						name: 'Check Job',
 						value: 'checkJob',
-						description: 'Check the status of an async TTS job',
+						description: 'Check the status of an async TTS or STT job',
 						action: 'Check async job status',
 					},
 					{
@@ -225,7 +225,7 @@ export class Leanvox implements INodeType {
 				type: 'string',
 				required: true,
 				default: '',
-				description: 'The async job ID to check',
+				description: 'The async TTS or STT job ID to check',
 				displayOptions: {
 					show: {
 						resource: ['speech'],
@@ -324,6 +324,19 @@ export class Leanvox implements INodeType {
 					},
 				},
 			},
+			{
+				displayName: 'Force Async',
+				name: 'forceAsync',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to schedule transcription as a background job and return a job ID immediately',
+				displayOptions: {
+					show: {
+						resource: ['audio'],
+						operation: ['transcribe'],
+					},
+				},
+			},
 		],
 	};
 
@@ -397,7 +410,7 @@ export class Leanvox implements INodeType {
 							'leanvoxApi',
 							{
 								method: 'GET' as IHttpRequestMethods,
-								url: `https://api.leanvox.com/v1/tts/jobs/${jobId}`,
+								url: `https://api.leanvox.com/v1/jobs/${jobId}`,
 								json: true,
 							},
 						);
@@ -424,6 +437,7 @@ export class Leanvox implements INodeType {
 				if (resource === 'audio' && operation === 'transcribe') {
 					const binaryPropertyName = this.getNodeParameter('binaryPropertyName', i) as string;
 					const features = this.getNodeParameter('features', i) as string[];
+					const forceAsync = this.getNodeParameter('forceAsync', i) as boolean;
 
 					const binaryData = this.helpers.assertBinaryData(i, binaryPropertyName);
 					const dataBuffer = await this.helpers.getBinaryDataBuffer(i, binaryPropertyName);
@@ -439,7 +453,10 @@ export class Leanvox implements INodeType {
 					};
 
 					if (features.length > 0) {
-						formData.features = features.join(',');
+						formData.features = JSON.stringify(['transcript', ...features]);
+					}
+					if (forceAsync) {
+						formData.force_async = 'true';
 					}
 
 					responseData = await this.helpers.httpRequestWithAuthentication.call(
